@@ -1,24 +1,39 @@
 use std::io;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 enum BoardState{
     EMPTY,
     O,
     X
 }
 
+
+// overall board wrapper struct
 struct Board{
     board: Vec<BoardState>,
 }
 
 
+// methods for board
 impl Board{
-    fn init(&mut self) {
-        for i in 0..9 {
-            self.board[i] = BoardState::EMPTY;
-        }
+    // static function to create a new board
+    fn new() -> Board{
+        return Board{
+            board: vec![
+                BoardState::EMPTY,
+                BoardState::EMPTY,
+                BoardState::EMPTY,
+                BoardState::EMPTY,
+                BoardState::EMPTY,
+                BoardState::EMPTY,
+                BoardState::EMPTY,
+                BoardState::EMPTY,
+                BoardState::EMPTY,
+            ],
+        };
     }
 
+    // get the turn of the player                
     fn get_player(&self) -> BoardState{
         let mut count_x = 0;
         let mut count_o = 0;
@@ -43,12 +58,14 @@ impl Board{
         }
     }
 
+    // setter function, i don't know why I created this
     fn set_board_state(&mut self, index:usize, state:BoardState){
         // need to do this because of token is not a reference it it borrowed
         // and the variable which is used to call this function can not be used later in the program
         self.board[index] = state;
     }
 
+    // check if the cell is empty ofc
     fn is_empty_cell(&self, index:usize) -> bool {
         match self.board[index] {
             BoardState::EMPTY => true,
@@ -56,12 +73,15 @@ impl Board{
         }
     }
 
+    // check if the cell is occupied or not
     fn is_all_occupied(&self) -> bool{
         for elem in self.board.iter(){
             match elem{
+                // if empty return false and be done with it
                 BoardState::EMPTY => {
                     return false;
                 },
+                // if else do nothing, could have used if
                 _ => {
 
                 }
@@ -73,41 +93,35 @@ impl Board{
 
     // check if the game is over or not 
     fn is_game_over(&self) -> BoardState{
-        // why because rust
-        let t = BoardState::EMPTY;
-        let mut token = &t;
         // horizontal check
         for i in 0..3 {
             if self.board[3 * i] == self.board[3 * i + 1] && self.board[3 * i] == self.board[3 * i + 2] && self.board[3 * i] != BoardState::EMPTY{
-                token = &self.board[3 * i];
+                return self.board[3 * i];
             }
         }
 
         // vertical check
         for i in 0..3 {
             if self.board[i] == self.board[i + 3] && self.board[i] == self.board[i + 6] && self.board[i] != BoardState::EMPTY{
-                token = &self.board[i];
+                return self.board[i];
             }
         }
 
         // 1st diagonal check
         if self.board[0] == self.board[4] && self.board[0] == self.board[8] && self.board[8] != BoardState::EMPTY{
-            token = &self.board[4];
+            return self.board[4];
         }
 
 
         // second diagonal check
         if self.board[2] == self.board[4] && self.board[2] == self.board[6] && self.board[2] != BoardState::EMPTY{
-            token = &self.board[4];
+            return self.board[4];
         }
 
-        match token {
-            BoardState::X => BoardState::X,
-            BoardState::O => BoardState::O,
-            _ => BoardState::EMPTY
-        }
+        return BoardState::EMPTY;
     }
 
+    // get all the empty cell in the board
     fn get_emply_states(&self) -> Vec<usize>{
         let mut emply_states = Vec::new();
         
@@ -126,6 +140,8 @@ impl Board{
     }
 
     
+    // heuristic function, get score of the terminal state
+    // since tic tac toe all state can be stored
     fn get_board_score(&self) -> i64{
         let winner = self.is_game_over();
         match winner{
@@ -138,44 +154,35 @@ impl Board{
 
 }
 
-
+// get maximum value of the board state
+// mini-max function
 fn get_max_value(board: &mut Board, mut alpha: i64, beta: i64) -> i64{
-    let mut new_board = Board{
-        board: vec![
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-        ],
-    };
-
+    let mut new_board = Board::new(); 
     for i in 0..9 {
-        let state = match board.board[i]{
-                BoardState::EMPTY => BoardState::EMPTY,
-                BoardState::O => BoardState::O,
-                BoardState::X => BoardState::X,
-            };
-        new_board.set_board_state(i, state);
+        new_board.set_board_state(i, board.board[i]);
     }
 
-    if board.is_all_occupied() {
+    // check if the terminal state
+    if board.is_all_occupied() || board.is_game_over() != BoardState::EMPTY{
         return board.get_board_score();
     }
 
+    // initial value of vax_value
     let mut max_value: i64 = -100000000;
 
+
+    // get the possible actions for the current board state
     let possible_actions = board.get_emply_states();
 
     for action in possible_actions{
+        // apply the action
         new_board.set_board_state(action, BoardState::X);
         max_value = std::cmp::max(max_value, get_min_value(&mut new_board, alpha, beta));
+
+        //reverse the state so that it is safe to use for next iteration
         new_board.set_board_state(action, BoardState::EMPTY);
 
+        // alpha-beta pruning
         if max_value >= beta{
             break;
         }
@@ -186,42 +193,32 @@ fn get_max_value(board: &mut Board, mut alpha: i64, beta: i64) -> i64{
     return max_value;
 }
 
-fn get_min_value(board: &mut Board, alpha: i64, mut beta: i64) -> i64{
-    let mut new_board = Board{
-        board: vec![
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-        ],
-    };
 
+// get minimum value of the board state
+// mini-max function
+fn get_min_value(board: &mut Board, alpha: i64, mut beta: i64) -> i64{
+    let mut new_board = Board::new(); 
     for i in 0..9 {
-        let state = match board.board[i]{
-                BoardState::EMPTY => BoardState::EMPTY,
-                BoardState::O => BoardState::O,
-                BoardState::X => BoardState::X,
-            };
-        new_board.set_board_state(i, state);
+        new_board.set_board_state(i, board.board[i]);
     }
 
 
-    if board.is_all_occupied() {
+    // if it is a terminal state then return the evaluation of the board
+    if board.is_all_occupied()  || board.is_game_over() != BoardState::EMPTY{
         return board.get_board_score();
     }
 
+    // initial minimum value
     let mut min_value = 100000000;
 
+    // get all the possible actions in the board
     let possible_actions = board.get_emply_states();
 
     for action in possible_actions{
+        // apply the action
         new_board.set_board_state(action, BoardState::O);
         min_value = std::cmp::min(min_value, get_max_value(&mut new_board, alpha, beta));
+        //reverse the state so that it is safe to use for next iteration
         new_board.set_board_state(action, BoardState::EMPTY);
 
         if min_value <= alpha {
@@ -234,28 +231,13 @@ fn get_min_value(board: &mut Board, alpha: i64, mut beta: i64) -> i64{
     return min_value;
 }
 
-fn minimax(board: &mut Board) -> i64{
-    let mut new_board = Board{
-        board: vec![
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-        ],
-    };
 
+
+// overall minimax function
+fn minimax(board: &mut Board) -> i64{
+    let mut new_board = Board::new(); 
     for i in 0..9 {
-        let state = match board.board[i]{
-                BoardState::EMPTY => BoardState::EMPTY,
-                BoardState::O => BoardState::O,
-                BoardState::X => BoardState::X,
-            };
-        new_board.set_board_state(i, state);
+        new_board.set_board_state(i, board.board[i]);
     }
     let mut selected_action:i64 = 0;
 
@@ -264,12 +246,12 @@ fn minimax(board: &mut Board) -> i64{
     match player {
         BoardState::X => {
             let mut max_value: i64 = -100000000;
-            for action in new_board.get_emply_states() {
-                new_board.set_board_state(action as usize, match player{
-                    BoardState::EMPTY => BoardState::EMPTY,
-                    BoardState::O => BoardState::O,
-                    BoardState::X => BoardState::X,
-                });
+
+            let possible_actions = new_board.get_emply_states();
+
+            for action in possible_actions {
+                // apply the action
+                new_board.set_board_state(action as usize, player);
                 let min_value_result = get_min_value(&mut new_board, -100000000, 100000000);
 
                 if min_value_result > max_value {
@@ -277,24 +259,27 @@ fn minimax(board: &mut Board) -> i64{
                     selected_action = action as i64;
                 }
 
+                //reverse the state so that it is safe to use for next iteration
                 new_board.set_board_state(action, BoardState::EMPTY);
             }
 
         },
         BoardState::O => {
             let mut min_value: i64 = 100000000;
-            for action in new_board.get_emply_states() {
-                new_board.set_board_state(action as usize, match player{
-                    BoardState::EMPTY => BoardState::EMPTY,
-                    BoardState::O => BoardState::O,
-                    BoardState::X => BoardState::X,
-                });
+
+            let possible_actions = new_board.get_emply_states();
+
+            for action in possible_actions {
+                // apply the action
+                new_board.set_board_state(action as usize, player);
                 let max_value_result = get_max_value(&mut new_board, -100000000, 100000000);
 
                 if max_value_result < min_value {
                     min_value = max_value_result;
                     selected_action = action as i64;
                 }
+
+                //reverse the state so next action could be applied
                 new_board.set_board_state(action, BoardState::EMPTY);
             }
         },
@@ -320,7 +305,7 @@ fn show_board(board: &Board) {
             print!("{} | ", value);
         }
     }
-    println!("");
+    println!("\n --------------------------------------------------");
 }
 
 fn game(board: &mut Board){
@@ -351,6 +336,7 @@ fn game(board: &mut Board){
                 io::stdin().read_line(&mut inp).expect("Failed to readline");
 
                 //parse the input to get the index
+                // trim because the string contain white space, and the panic occurs
                 index = inp.trim().parse().unwrap();
                 
                 // check if the index is valid
@@ -375,6 +361,7 @@ fn game(board: &mut Board){
             board.set_board_state(index as usize - 1, BoardState::X);
         }
         else {
+            println!("\n O's turn:");
             let index = minimax(board);
             // set the required index
             board.set_board_state(index as usize, BoardState::O);
@@ -392,6 +379,7 @@ fn game(board: &mut Board){
                 break;
             }
         };
+        // if every cell is occupied, game over and draw
         if board.is_all_occupied() {
             is_game_over = true;
             winner = BoardState::EMPTY;
@@ -416,20 +404,6 @@ fn game(board: &mut Board){
 
 
 fn main() {
-    let mut board = Board{
-        board: vec![
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-            BoardState::EMPTY,
-        ],
-    };
-
-    board.init();
+    let mut board = Board::new(); 
     game(&mut board);
 }
