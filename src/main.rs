@@ -60,8 +60,6 @@ impl Board{
 
     // setter function, i don't know why I created this
     fn set_board_state(&mut self, index:usize, state:BoardState){
-        // need to do this because of token is not a reference it it borrowed
-        // and the variable which is used to call this function can not be used later in the program
         self.board[index] = state;
     }
 
